@@ -24,29 +24,23 @@ struct PatchListResponse {
 impl ProjectVersionList {
     pub async fn fetch(project: &str) -> Result<ProjectVersionList, Box<dyn std::error::Error>> {
         let url = "https://papermc.io/api/v1/".to_owned() + project;
-        let resp = reqwest::get(&url)
-            .await?
-            .json::<ProjectVersionList>()
-            .await?;
+        let resp = ureq::get(&url).call().into_json_deserialize::<ProjectVersionList>()?;
         Ok(resp)
     }
 
-    pub async fn fetch_patches(
+    pub fn fetch_patches(
         version: (u32, u32, u32),
     ) -> Result<PatchList, Box<dyn std::error::Error>> {
         let url = format!(
             "https://papermc.io/api/v1/paper/{}.{}.{}",
             version.0, version.1, version.2
         );
-        let resp = reqwest::get(&url)
-            .await?
-            .json::<PatchListResponse>()
-            .await?;
+        let resp = ureq::get(&url).call().into_json_deserialize::<PatchListResponse>()?;
         Ok(resp.builds)
     }
 
-    pub async fn download<T: io::Write>(
-        version: ServerVersion,
+    pub fn download<T: io::Write>(
+        version: &ServerVersion,
         stream: &mut T,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let url;
@@ -61,12 +55,12 @@ impl ProjectVersionList {
                 version.minecraft.0,
                 version.minecraft.1,
                 version.minecraft.2,
-                Self::fetch_patches(version.minecraft).await?.latest
+                Self::fetch_patches(version.minecraft)?.latest
             );
         }
         info!("Downloading {}", url);
-        let resp = reqwest::get(&url).await?.bytes().await?;
-        io::copy(&mut resp.as_ref(), stream)?;
+        let mut resp = ureq::get(&url).call().into_reader();
+        io::copy(&mut resp, stream)?;
         Ok(())
     }
 }

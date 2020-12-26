@@ -1,6 +1,7 @@
 pub mod config;
 pub mod error;
 pub mod paper_api;
+pub mod servers;
 
 #[cfg(test)]
 mod tests {

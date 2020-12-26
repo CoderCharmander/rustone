@@ -1,15 +1,18 @@
-use std::fmt;
-use std::error::Error;
 use std::boxed::Box;
+use std::fmt;
+
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Debug)]
 pub struct ServoError {
-    details: String
+    details: String,
 }
 
 impl ServoError {
     pub fn new(msg: &str) -> Self {
-        Self { details: msg.to_string() }
+        Self {
+            details: msg.to_string(),
+        }
     }
 
     pub fn boxnew(msg: &str) -> Box<Self> {
@@ -23,7 +26,7 @@ impl fmt::Display for ServoError {
     }
 }
 
-impl Error for ServoError {
+impl std::error::Error for ServoError {
     fn description(&self) -> &str {
         &self.details
     }

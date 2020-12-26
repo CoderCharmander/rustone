@@ -19,9 +19,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         exit(1);
     }
 
-    match action.unwrap().as_str() {
+    let out = match action.unwrap().as_str() {
         "help" => actions::help(args),
         "download" => actions::download(args),
+        "create" => actions::create(args),
+        "start" => actions::start(args),
         &_ => actions::help(args),
+    };
+
+    if let Err(err) = out {
+        eprintln!("Error! {}", err);
     }
+
+    Ok(())
 }
