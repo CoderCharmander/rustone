@@ -1,0 +1,53 @@
+name: servcmd
+version: "0.1"
+author: El Koulali Andras <deak311andris@gmail.com>
+about: Command-line Minecraft server manager
+
+settings:
+    - ArgRequiredElseHelp
+
+args:
+    - verbose:
+        short: v
+        long: verbose
+        help: Show detailed information
+subcommands:
+    - download:
+        about: Download a server jar with specific version
+        args:
+            - VERSION:
+                help: Server version to download
+                required: true
+                index: 1
+            - output:
+                short: o
+                long: output
+                help: "specify file to download to"
+                takes_value: true
+    - list:
+        about: Lists existing servers
+    - create:
+        about: Create a server
+        args:
+            - NAME:
+                help: The name of the server to be created
+                required: true
+                index: 1
+            - VERSION:
+                help: The version of the server
+                required: true
+                index: 2
+    - start:
+        about: Start a server
+        args:
+            - NAME:
+                help: The name of the server to be started
+                required: true
+                index: 1
+    - remove:
+        about: Delete a server
+        args:
+            - NAME:
+                help: The name of the server to be deleted
+                required: true
+                index: 1

@@ -3,33 +3,64 @@ extern crate pretty_env_logger;
 extern crate log;
 extern crate servo;
 
-use std::{env, process::exit};
+use clap::{load_yaml, App};
 
 mod actions;
+mod cli;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn enable_ansi() {
+    #[cfg(windows)]
+    ansi_term::enable_ansi_support();
+}
+
+fn main() {
     pretty_env_logger::init();
 
-    let mut args = env::args();
-    let program = args.next().unwrap_or("servcmd".to_owned());
-    let action = args.next();
-    if let None = action {
-        error!("No action specified");
-        eprintln!("Usage: {} <action> [args...]", program);
-        exit(1);
-    }
+    let yaml = load_yaml!("cli.yaml");
+    let matches = App::from_yaml(yaml).get_matches();
 
-    let out = match action.unwrap().as_str() {
-        "help" => actions::help(args),
-        "download" => actions::download(args),
-        "create" => actions::create(args),
-        "start" => actions::start(args),
-        &_ => actions::help(args),
+    let out = match matches.subcommand() {
+        ("download", matches) => actions::download(matches.unwrap()),
+        ("list", _) => actions::list(),
+        ("create", matches) => actions::create(matches.unwrap()),
+        ("start", matches) => actions::start(matches.unwrap()),
+        ("remove", matches) => actions::remove(matches.unwrap()),
+        _ => unreachable!(),
     };
 
-    if let Err(err) = out {
-        eprintln!("Error! {}", err);
-    }
+    enable_ansi();
 
-    Ok(())
+    if let Err(err) = out {
+        error!("Error! {}", err);
+
+        for e in err.iter().skip(1) {
+            error!("caused by: {}", e);
+        }
+
+        // Manual backtrace implementation, don't ask please
+        if let Some(backtrace) = err.backtrace() {
+            error!("backtrace: ");
+            for (i, frame) in backtrace.frames().iter().enumerate() {
+                error!("{}:", i);
+                for symbol in frame.symbols() {
+                    error!(
+                        " - {} @ {} : {}",
+                        symbol.name().map_or_else(
+                            || symbol
+                                .addr()
+                                .map_or_else(|| String::from("?"), |a| format!("{:p}", a)),
+                            |n| n.to_string()
+                        ),
+                        symbol
+                            .filename()
+                            .map_or_else(|| "?", |n| n.to_str().unwrap_or("?")),
+                        symbol
+                            .lineno()
+                            .map_or_else(|| String::from("?"), |n| n.to_string())
+                    );
+                }
+            }
+        }
+        std::process::exit(1);
+    }
 }

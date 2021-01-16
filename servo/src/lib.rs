@@ -1,7 +1,9 @@
+extern crate error_chain;
 pub mod config;
-pub mod error;
+pub mod errors;
 pub mod paper_api;
 pub mod servers;
+pub mod util;
 
 #[cfg(test)]
 mod tests {
