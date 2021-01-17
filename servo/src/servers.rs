@@ -10,7 +10,7 @@ use std::{
     fs,
     io::Write,
     path::PathBuf,
-    process::{Child, Command},
+    process::{Child, Command, Stdio},
 };
 
 pub struct Server {
@@ -123,7 +123,13 @@ impl CachedJar {
     }
 
     /// Start the server with the cached jar.
-    pub fn start_server(&self, server: Server) -> Result<Child> {
+    pub fn start_server(
+        &self,
+        server: Server,
+        stdout: Stdio,
+        stderr: Stdio,
+        stdin: Stdio,
+    ) -> Result<Child> {
         if server.config.version != self.version {
             return Err(Error::from("Server started with invalid version!"));
         }
@@ -174,6 +180,9 @@ impl CachedJar {
                 plugins_path.to_str().unwrap(),
             ])
             .current_dir(config_path)
+            .stdout(stdout)
+            .stderr(stderr)
+            .stdin(stdin)
             .spawn()
             .chain_err(|| "spawning the server process failed")?;
         Ok(cmd)

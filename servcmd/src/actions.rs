@@ -7,7 +7,7 @@ use servo::{
     paper_api,
     servers::{iter_servers_directory, CachedJar, Server},
 };
-use std::{fs, io::BufRead};
+use std::{fs, io::BufRead, process::Stdio};
 
 pub fn download(args: &ArgMatches) -> Result<()> {
     let version = ServerVersion::new(args.value_of("VERSION").unwrap())?;
@@ -37,7 +37,8 @@ pub fn start(args: &ArgMatches) -> Result<()> {
     let name = args.value_of("NAME").unwrap();
     let server = Server::get(&name)?;
     let jar = CachedJar::download(server.config.version)?;
-    let mut child = jar.start_server(server)?;
+    let mut child =
+        jar.start_server(server, Stdio::inherit(), Stdio::inherit(), Stdio::inherit())?;
     child.wait().chain_err(|| "wait failed")?;
     Ok(())
 }

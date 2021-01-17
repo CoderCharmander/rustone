@@ -3,7 +3,6 @@ pub mod config;
 pub mod errors;
 pub mod paper_api;
 pub mod servers;
-pub mod util;
 
 #[cfg(test)]
 mod tests {
