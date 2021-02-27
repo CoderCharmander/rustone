@@ -18,6 +18,6 @@ pub fn generate_keypair() -> Result<Rsa<Private>> {
 
 pub fn encrypt() -> Result<()> {
     let rsa = generate_keypair()?;
-    
+
     Ok(())
 }

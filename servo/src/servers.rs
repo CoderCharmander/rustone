@@ -176,9 +176,12 @@ impl CachedJar {
                 // Data files
                 "--universe",
                 world_path.to_str().unwrap(),
-                "-plugins",
+                "--plugins",
                 plugins_path.to_str().unwrap(),
             ])
+            // There might be other config files, caches etc. We don't want them
+            // to clutter the current directory, even less to be lost or overridden
+            // accidentally.
             .current_dir(config_path)
             .stdout(stdout)
             .stderr(stderr)
@@ -194,7 +197,7 @@ pub fn iter_servers_directory() -> Result<ReadDir> {
     read_dir(project_dirs()?.data_dir()).chain_err(|| "failed to list servers directory")
 }
 
-pub fn iter_servers() -> Result<impl Iterator<Item = Result<Server>>> {
+pub fn get_servers() -> Result<Vec<Server>> {
     let dir = iter_servers_directory()?;
     let mapped = dir.map(|entry| {
         Server::get(
@@ -205,5 +208,5 @@ pub fn iter_servers() -> Result<impl Iterator<Item = Result<Server>>> {
                 .unwrap(),
         )
     });
-    Ok(mapped)
+    Ok(mapped.collect::<Result<_>>()?)
 }

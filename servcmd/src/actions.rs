@@ -12,10 +12,7 @@ use std::{fs, io::BufRead, process::Stdio};
 pub fn download(args: &ArgMatches) -> Result<()> {
     let version = ServerVersion::new(args.value_of("VERSION").unwrap())?;
 
-    let output = format!(
-        "paper-{}.{}.{}.jar",
-        version.minecraft.0, version.minecraft.1, version.minecraft.2
-    );
+    let output = format!("paper-{}.jar", version.minecraft);
     let output = args.value_of("output").unwrap_or(&output);
 
     println!("Downloading version {} into {}", version, output);

@@ -1,6 +1,6 @@
 use std::process::Stdio;
 
-use servers::{iter_servers, CachedJar};
+use servers::{get_servers, CachedJar};
 use servo::servers;
 use warp::Filter;
 
@@ -16,6 +16,8 @@ async fn main() {
         .and(warp::path!("server"))
         .map(|| list_servers());
 
+    // /server/<name>/start: start a server
+    // returns {success: true} if success, or {success: false, payload: <error string>}
     let start_server = warp::path!("server" / String / "start").map(|name: String| {
         match servers::Server::get(&name) {
             Ok(server) => {
@@ -41,8 +43,10 @@ async fn main() {
         }
     });
 
+    println!("Serving on 0.0.0.0:8080");
+
     warp::serve(get_server.or(get_servers).or(start_server))
-        .run(([192, 168, 0, 11], 8080))
+        .run("0.0.0.0:8080".parse::<std::net::SocketAddrV4>().unwrap())
         .await;
 }
 
@@ -60,16 +64,12 @@ fn get_server(name: &str) -> String {
 }
 
 fn list_servers() -> String {
-    let servers_iter = iter_servers();
+    let servers_iter = get_servers();
     if let Err(error) = servers_iter {
         return json::stringify(json::object! {success: false, payload: error.to_string()});
     }
     let mut servers = vec![];
-    for i in servers_iter.unwrap() {
-        if let Err(error) = i {
-            return json::stringify(json::object! {success: false, payload: error.to_string()});
-        }
-        let server = i.unwrap();
+    for server in servers_iter.unwrap() {
         servers.push(
             json::object! {name: server.config.name, version: format!("{}", server.config.version)},
         );

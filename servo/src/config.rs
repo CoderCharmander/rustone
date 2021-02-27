@@ -4,15 +4,30 @@ use std::fmt::Display;
 use crate::errors::*;
 use toml::Value;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MinecraftVersion(pub u32, pub u32, pub Option<u32>);
+
+impl Display for MinecraftVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.0, self.1)?;
+        if let Some(patch) = self.2 {
+            write!(f, ".{}", patch)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct ServerVersion {
     /// Minecraft version.
+    /// The last number (patch) may be missing (for example: 1.17)
+    ///
     /// # Examples
     /// ```
     /// let version = crate::servo::config::ServerVersion::new("1.12.2").unwrap();
     /// assert_eq!(version.minecraft, (1, 12, 2));
     /// ```
-    pub minecraft: (u32, u32, u32),
+    pub minecraft: MinecraftVersion,
 
     /// Build number.
     pub patch: Option<u32>,
@@ -40,18 +55,25 @@ impl ServerVersion {
                 .ok_or(Error::from("No Minecraft minor version"))?
                 .parse::<u32>()
                 .chain_err(|| "Parse error for Minecraft minor version")?,
-            splitted
-                .next()
-                .ok_or(Error::from("No Minecraft patch version"))?
-                .parse::<u32>()
-                .chain_err(|| "Parse error for Minecraft patch version")?,
+            splitted.next().map(|s| {
+                s.parse::<u32>()
+                    .chain_err(|| "Parse error for Minecraft patch version")
+            }),
+        );
+        let minecraft = MinecraftVersion(
+            minecraft.0,
+            minecraft.1,
+            match minecraft.2 {
+                Some(result) => Some(result?),
+                None => None,
+            },
         );
         let patch;
         if let Some(patch_str) = splitted.next() {
             patch = Some(
                 patch_str
                     .parse::<u32>()
-                    .chain_err(|| "Parse error for patch version")?,
+                    .chain_err(|| "Parse error for Paper patch version")?,
             );
         } else {
             patch = None;
@@ -63,19 +85,11 @@ impl ServerVersion {
 
 impl Display for ServerVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.minecraft)?;
         if let Some(patch) = self.patch {
-            write!(
-                f,
-                "{}.{}.{}-{}",
-                self.minecraft.0, self.minecraft.1, self.minecraft.2, patch
-            )
-        } else {
-            write!(
-                f,
-                "{}.{}.{}",
-                self.minecraft.0, self.minecraft.1, self.minecraft.2
-            )
+            write!(f, "-{}", patch)?;
         }
+        Ok(())
     }
 }
 

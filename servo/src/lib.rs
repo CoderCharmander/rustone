@@ -12,7 +12,7 @@ mod tests {
     fn version_parse() {
         let version = config::ServerVersion::new("1.12.2-4").unwrap();
         assert_eq!(version.patch.unwrap(), 4);
-        assert_eq!(version.minecraft, (1, 12, 2));
+        assert_eq!(version.minecraft, config::MinecraftVersion(1, 12, Some(2)));
     }
 
     #[test]
