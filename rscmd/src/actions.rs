@@ -1,8 +1,8 @@
 use crate::cli;
 use clap::ArgMatches;
-use config::ServerVersion;
-use servo::{
+use rustone::{
     config,
+    config::ServerVersion,
     errors::*,
     paper_api,
     servers::{iter_servers_directory, CachedJar, Server},

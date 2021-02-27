@@ -1,2 +1,2 @@
 [workspace]
-members = ["servo", "servcmd", "servhttp"]
+members = ["rustone", "rscmd", "rshttp"]

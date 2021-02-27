@@ -11,7 +11,7 @@ http = "0.2"
 webpki-roots = "0.21.0"
 tokio = { version = "0.2", features = ["full"] }
 warp = "0.2"
-servo = { path = "../servo" }
+rustone = { path = "../rustone" }
 json = "0.12"
 rand = "0.8.2"
 lazy_static = "1.4.0"

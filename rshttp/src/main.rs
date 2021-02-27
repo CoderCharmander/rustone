@@ -1,7 +1,7 @@
 use std::process::Stdio;
 
+use rustone::servers;
 use servers::{get_servers, CachedJar};
-use servo::servers;
 use warp::Filter;
 
 mod communication;

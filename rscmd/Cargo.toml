@@ -1,5 +1,5 @@
 [package]
-name = "servcmd"
+name = "rscmd"
 version = "0.1.0"
 authors = ["El Koulali András <deak311andris@gmail.com>"]
 edition = "2018"
@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 log = "0.4"
 pretty_env_logger = "0.4"
-servo = { path = "../servo" }
+rustone = { path = "../rustone" }
 clap = { version = "2.33", features = ["yaml", "color", "suggestions", "wrap_help"] }
 atty = "0.2.14"
 ansi_term = "0.12.1"

@@ -1,6 +1,6 @@
 use openssl::{pkey::Private, rsa::Rsa};
 use rand::*;
-use servo::errors::*;
+use rustone::errors::*;
 
 pub fn generate_access_key() -> String {
     let key = thread_rng()

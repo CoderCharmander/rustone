@@ -1,7 +1,7 @@
 extern crate pretty_env_logger;
 #[macro_use]
 extern crate log;
-extern crate servo;
+extern crate rustone;
 
 use clap::{load_yaml, App};
 
