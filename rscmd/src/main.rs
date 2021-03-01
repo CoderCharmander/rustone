@@ -25,6 +25,7 @@ fn main() {
         ("create", matches) => actions::create(matches.unwrap()),
         ("start", matches) => actions::start(matches.unwrap()),
         ("remove", matches) => actions::remove(matches.unwrap()),
+        ("upgrade", _) => actions::upgrade(),
         _ => unreachable!(),
     };
 

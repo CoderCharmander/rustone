@@ -37,6 +37,8 @@ subcommands:
                 help: The version of the server
                 required: true
                 index: 2
+    - upgrade:
+        about: Upgrade the already existing cached JARs
     - start:
         about: Start a server
         args:

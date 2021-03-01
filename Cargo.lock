@@ -1229,6 +1229,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "rshttp"
+version = "0.1.0"
+dependencies = [
+ "http",
+ "json",
+ "lazy_static",
+ "openssl",
+ "rand 0.8.3",
+ "rustone",
+ "tokio",
+ "warp",
+ "webpki-roots",
+]
+
+[[package]]
 name = "rust-argon2"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1274,6 +1289,7 @@ version = "0.1.0"
 dependencies = [
  "directories",
  "error-chain",
+ "lazy_static",
  "log",
  "serde",
  "serde_json",
@@ -1365,21 +1381,6 @@ dependencies = [
  "itoa",
  "serde",
  "url",
-]
-
-[[package]]
-name = "servhttp"
-version = "0.1.0"
-dependencies = [
- "http",
- "json",
- "lazy_static",
- "openssl",
- "rand 0.8.3",
- "rustone",
- "tokio",
- "warp",
- "webpki-roots",
 ]
 
 [[package]]

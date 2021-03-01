@@ -15,7 +15,7 @@ pub struct ProjectVersionList {
 
 #[derive(Deserialize)]
 pub struct PatchList {
-    latest: u32,
+    pub latest: u32,
     // all: Vec<u32>,
 }
 
@@ -34,8 +34,8 @@ impl ProjectVersionList {
         Ok(resp)
     }
 
-    pub fn fetch_patches(version: MinecraftVersion) -> Result<PatchList> {
-        let url = format!("https://papermc.io/api/v1/paper/{}", version);
+    pub fn fetch_patches(version: MinecraftVersion, project: &str) -> Result<PatchList> {
+        let url = format!("https://papermc.io/api/v1/{}/{}", project, version);
         let resp = ureq::get(&url)
             .call()
             .into_json_deserialize::<PatchListResponse>()
@@ -44,23 +44,27 @@ impl ProjectVersionList {
     }
 
     /// Download a server jar with the specified version into `stream`.
-    pub fn download<T: io::Write>(version: &ServerVersion, stream: &mut T) -> Result<()> {
-        let url = get_download_url(version)?;
+    pub fn download<T: io::Write>(version: &mut ServerVersion, stream: &mut T) -> Result<()> {
+        let (url, patch) = get_download_url(version)?;
         info!("Downloading {}", url);
+        version.patch = Some(patch);
         let mut resp = ureq::get(&url).call().into_reader();
         io::copy(&mut resp, stream).chain_err(|| "could not download jar")?;
         Ok(())
     }
 }
 
-fn get_download_url(version: &ServerVersion) -> Result<String> {
-    Ok(format!(
-        "https://papermc.io/api/v1/paper/{}/{}/download",
-        version.minecraft,
-        version.patch.map_or_else(
-            || ProjectVersionList::fetch_patches(version.minecraft).map(|pl| pl.latest),
-            |p| Ok(p)
-        )?
+fn get_download_url(version: &ServerVersion) -> Result<(String, u32)> {
+    let patch = version.patch.map_or_else(
+        || ProjectVersionList::fetch_patches(version.minecraft, "paper").map(|pl| pl.latest),
+        |p| Ok(p),
+    )?;
+    Ok((
+        format!(
+            "https://papermc.io/api/v1/paper/{}/{}/download",
+            version.minecraft, patch
+        ),
+        patch,
     ))
 }
 

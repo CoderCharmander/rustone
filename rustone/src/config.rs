@@ -4,7 +4,7 @@ use std::fmt::Display;
 use crate::errors::*;
 use toml::Value;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MinecraftVersion(pub u32, pub u32, pub Option<u32>);
 
 impl Display for MinecraftVersion {
@@ -95,7 +95,7 @@ impl Display for ServerVersion {
 
 impl std::cmp::PartialEq<ServerVersion> for ServerVersion {
     fn eq(&self, other: &ServerVersion) -> bool {
-        self.patch == other.patch && self.minecraft == other.minecraft
+        self.minecraft == other.minecraft
     }
 }
 
@@ -117,40 +117,6 @@ impl ServerConfig {
             .ok_or(Error::from("'version' property does not exist"))?
             .as_str()
             .ok_or(Error::from("'version' is not a string"))?;
-
-        // let extra_java_args = value
-        //     .get("extra_java_args")
-        //     .map_or_else(
-        //         || Ok(vec![]),
-        //         |v| {
-        //             v.as_array()
-        //                 .ok_or(Error::from("'extra_java_args' is not a list"))
-        //         },
-        //     )?
-        //     .iter()
-        //     .map(|v| v.as_str());
-
-        // if extra_java_args.any(|s| s.is_none()) {
-        //     return Err(Error::from("'extra_java_args' is not a list of strings"));
-        // }
-        // let extra_java_args = extra_java_args.map(|s| s.unwrap().to_string()).collect();
-
-        // let extra_server_args = value
-        //     .get("extra_server_args")
-        //     .map_or_else(
-        //         || Ok(&vec![]),
-        //         |v| {
-        //             v.as_array()
-        //                 .ok_or(Error::from("'extra_server_args' is not a list"))
-        //         },
-        //     )?
-        //     .iter()
-        //     .map(|v| v.as_str());
-
-        // if extra_server_args.any(|s| s.is_none()) {
-        //     return Err(Error::from("'extra_server_args' is not a list of strings"));
-        // }
-        // let extra_server_args = extra_server_args.map(|s| s.unwrap().to_string()).collect();
 
         Ok(Self {
             version: ServerVersion::new(version)?,

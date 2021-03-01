@@ -1,5 +1,5 @@
 [package]
-name = "servhttp"
+name = "rshttp"
 version = "0.1.0"
 authors = ["El Koulali András <deak311andris@gmail.com>"]
 edition = "2018"

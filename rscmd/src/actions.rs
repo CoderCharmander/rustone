@@ -1,16 +1,17 @@
 use crate::cli;
 use clap::ArgMatches;
 use rustone::{
+    cacher::{read_cache_meta, CachedJar},
     config,
     config::ServerVersion,
     errors::*,
     paper_api,
-    servers::{iter_servers_directory, CachedJar, Server},
+    servers::{get_servers, Server},
 };
-use std::{fs, io::BufRead, process::Stdio};
+use std::{borrow::Borrow, fs, io::BufRead, process::Stdio};
 
 pub fn download(args: &ArgMatches) -> Result<()> {
-    let version = ServerVersion::new(args.value_of("VERSION").unwrap())?;
+    let mut version = ServerVersion::new(args.value_of("VERSION").unwrap())?;
 
     let output = format!("paper-{}.jar", version.minecraft);
     let output = args.value_of("output").unwrap_or(&output);
@@ -18,7 +19,7 @@ pub fn download(args: &ArgMatches) -> Result<()> {
     println!("Downloading version {} into {}", version, output);
 
     let mut file = fs::File::create(output).chain_err(|| "could not create jar file")?;
-    paper_api::ProjectVersionList::download(&version, &mut file)?;
+    paper_api::ProjectVersionList::download(&mut version, &mut file)?;
 
     Ok(())
 }
@@ -33,7 +34,7 @@ pub fn create(args: &ArgMatches) -> Result<()> {
 pub fn start(args: &ArgMatches) -> Result<()> {
     let name = args.value_of("NAME").unwrap();
     let server = Server::get(&name)?;
-    let jar = CachedJar::download(server.config.version)?;
+    let jar = CachedJar::get(server.config.version)?;
     let mut child =
         jar.start_server(server, Stdio::inherit(), Stdio::inherit(), Stdio::inherit())?;
     child.wait().chain_err(|| "wait failed")?;
@@ -41,13 +42,7 @@ pub fn start(args: &ArgMatches) -> Result<()> {
 }
 
 pub fn list() -> Result<()> {
-    for dir in iter_servers_directory()? {
-        let server = Server::get(
-            dir.chain_err(|| "failed reading directory")?
-                .file_name()
-                .to_str()
-                .ok_or_else(|| Error::from("invalid character in server name"))?,
-        )?;
+    for server in get_servers()? {
         println!(
             "{} ({})",
             server.config.name,
@@ -64,7 +59,7 @@ pub fn remove(args: &ArgMatches) -> Result<()> {
         "Yes, erase {} completely and irrecoverably.",
         server.config.name
     );
-    println!("{} THIS WILL IRRECOVERABLY ERASE {}, ALL OF ITS CONFIGURATION AND WORLDS! TO CONTINUE, TYPE \"{}\".",
+    println!("{} THIS WILL IRRECOVERABLY ERASE {}, ALL OF ITS CONFIGURATION AND WORLDS! TO CONTINUE, TYPE '{}'.",
         cli::WARNING_HEADER_STYLE.paint("WARNING!"),
         cli::SECONDARY.paint(&server.config.name),
         cli::SECONDARY.paint(&confirm_str)
@@ -77,6 +72,18 @@ pub fn remove(args: &ArgMatches) -> Result<()> {
             .chain_err(|| "failed to remove server config")?;
     } else {
         println!("Abort.");
+    }
+    Ok(())
+}
+
+pub fn upgrade() -> Result<()> {
+    println!("Upgrading jars...");
+    for cj in read_cache_meta()?.jars {
+        println!("Conditionally upgrading version {}...", cj.mcversion);
+        CachedJar::get(ServerVersion {
+            minecraft: cj.mcversion,
+            patch: None,
+        })?;
     }
     Ok(())
 }
