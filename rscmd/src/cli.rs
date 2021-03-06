@@ -1,4 +1,4 @@
-use ansi_term::{Color, Style};
+use ansi_term::Color;
 use lazy_static::lazy_static;
 
 fn style_if_term(style: ansi_term::Style) -> ansi_term::Style {

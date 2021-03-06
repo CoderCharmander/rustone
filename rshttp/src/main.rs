@@ -15,7 +15,7 @@ async fn main() {
         .map(|name: String| get_server(&name));
     let get_servers = warp::get()
         .and(warp::path!("server"))
-        .map(|| list_servers());
+        .map(list_servers);
 
     // /server/<name>/start: start a server
     // returns {success: true} if success, or {success: false, payload: <error string>}

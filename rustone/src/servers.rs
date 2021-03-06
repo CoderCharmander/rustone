@@ -89,22 +89,26 @@ impl Server {
                 .chain_err(|| format!("could not create directory {}", dir))?;
         }
 
-        write!(&mut file, "name = '{}'\nversion = '{}'\n", name, version)
-            .chain_err(|| "failed to write config file")?;
+        let config = ServerConfig {
+            name: name.to_owned(),
+            version,
+            extra_java_args: vec![],
+            extra_server_args: vec![],
+        };
+
+        file.write_all(
+            toml::to_string_pretty(&config)
+                .chain_err(|| "failed to generate configuration")?
+                .as_bytes(),
+        )
+        .chain_err(|| "failed to write config file")?;
 
         let mut eula =
             fs::File::create(DATA_SERVER_DIR.join(name).join("configs").join("eula.txt"))
                 .chain_err(|| "could not create eula file")?;
         writeln!(&mut eula, "eula=true").chain_err(|| "could not write eula file")?;
 
-        Ok(Self {
-            config: ServerConfig {
-                name: name.to_owned(),
-                version,
-                extra_java_args: vec![],
-                extra_server_args: vec![],
-            },
-        })
+        Ok(Self { config })
     }
 
     pub fn config_path(&self) -> Result<PathBuf> {
@@ -128,7 +132,7 @@ impl Server {
 }
 
 /// Return an iterator to the servers directory.
-pub fn iter_servers_directory() -> Result<ReadDir> {
+fn iter_servers_directory() -> Result<ReadDir> {
     read_dir(project_dirs()?.data_dir()).chain_err(|| "failed to list servers directory")
 }
 

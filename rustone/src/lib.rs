@@ -12,7 +12,7 @@ pub mod global {
 
     pub fn project_dirs() -> errors::Result<ProjectDirs> {
         directories::ProjectDirs::from("org", "CoderCharmander", "Rustone")
-            .ok_or("could not get directory information".into())
+            .ok_or_else(|| "could not get directory information".into())
     }
 }
 

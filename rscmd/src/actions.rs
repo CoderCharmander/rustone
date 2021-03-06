@@ -8,7 +8,7 @@ use rustone::{
     paper_api,
     servers::{get_servers, Server},
 };
-use std::{borrow::Borrow, fs, io::BufRead, process::Stdio};
+use std::{fs, io::BufRead, process::Stdio};
 
 pub fn download(args: &ArgMatches) -> Result<()> {
     let mut version = ServerVersion::new(args.value_of("VERSION").unwrap())?;

@@ -28,7 +28,7 @@ impl CachedJar {
         if is_cached_jar_latest(version.minecraft) {
             return Ok(Self {
                 path: cached_jar_path(version.minecraft),
-                version: version,
+                version,
             });
         }
         let out = Self::download(version)?;

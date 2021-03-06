@@ -57,7 +57,7 @@ impl ProjectVersionList {
 fn get_download_url(version: &ServerVersion) -> Result<(String, u32)> {
     let patch = version.patch.map_or_else(
         || ProjectVersionList::fetch_patches(version.minecraft, "paper").map(|pl| pl.latest),
-        |p| Ok(p),
+        Ok,
     )?;
     Ok((
         format!(
