@@ -59,7 +59,7 @@ impl CachedJar {
         })
     }
 
-    /// Start the server with the cached jar.
+    /// Start a server with the cached jar.
     pub fn start_server(
         &self,
         server: Server,
@@ -80,8 +80,12 @@ impl CachedJar {
             .chain_err(|| "canonicalize failed")?;
 
         let cmd = Command::new("java")
+            // Append the extra Java arguments specified in config.
+            .args(&server.config.extra_java_args)
             .args(&["-jar", &self.path.to_string_lossy()])
-            .args(server_args(server)?)
+            .args(server_args(&server)?)
+            // Append the extra Minecraft arguments.
+            .args(&server.config.extra_server_args)
             // There might be other config files, caches etc. We don't want them
             // to clutter the current directory, even less to be lost or overridden
             // accidentally.

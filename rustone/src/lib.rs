@@ -44,7 +44,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "property does not exist")]
+    #[should_panic(expected = "invalid server configuration")]
     fn incorrect_config_parse() {
         let config = config::ServerConfig::new("version = '1.12.2-4'").unwrap();
         assert_eq!(config.name, "something");

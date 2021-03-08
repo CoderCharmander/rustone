@@ -18,7 +18,7 @@ lazy_static! {
     pub static ref DATA_SERVER_DIR: PathBuf = project_dirs().unwrap().data_dir().into();
 }
 
-pub fn server_args(server: Server) -> Result<Vec<String>> {
+pub fn server_args(server: &Server) -> Result<Vec<String>> {
     let config_path = server
         .server_path()?
         .join("configs")
