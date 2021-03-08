@@ -1,2 +1,8 @@
 [workspace]
 members = ["rustone", "rscmd", "rshttp"]
+
+[profile.release]
+# Make the absolutely smallest binary
+# (note: set lto to false in case of slow compilation)
+opt-level = 3
+lto = "fat"
