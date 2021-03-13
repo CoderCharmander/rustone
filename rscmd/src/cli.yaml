@@ -46,6 +46,15 @@ subcommands:
                 help: The name of the server to be started
                 required: true
                 index: 1
+    - cache:
+        settings:
+            - ArgRequiredElseHelp
+        about: Manage cache
+        subcommands:
+            - purge:
+                about: Remove all downloaded JAR files
+            - upgrade:
+                about: Upgrade downloaded JAR files to the latest build
     - remove:
         about: Delete a server
         args:

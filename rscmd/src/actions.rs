@@ -1,7 +1,7 @@
 use crate::cli;
 use clap::ArgMatches;
 use rustone::{
-    cacher::{read_cache_meta, CachedJar},
+    cacher::CachedJar,
     config,
     config::ServerVersion,
     errors::*,
@@ -9,6 +9,8 @@ use rustone::{
     servers::{get_servers, Server},
 };
 use std::{fs, io::BufRead, process::Stdio};
+
+mod cache;
 
 pub fn download(args: &ArgMatches) -> Result<()> {
     let mut version = ServerVersion::new(args.value_of("VERSION").unwrap())?;
@@ -76,14 +78,10 @@ pub fn remove(args: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-pub fn upgrade() -> Result<()> {
-    println!("Upgrading jars...");
-    for cj in read_cache_meta()?.jars {
-        println!("Conditionally upgrading version {}...", cj.mcversion);
-        CachedJar::get(ServerVersion {
-            minecraft: cj.mcversion,
-            patch: None,
-        })?;
+pub fn cache(args: &ArgMatches) -> Result<()> {
+    match args.subcommand() {
+        ("upgrade", _) => cache::upgrade(),
+        ("purge", _) => cache::purge(),
+        _ => unreachable!(),
     }
-    Ok(())
 }

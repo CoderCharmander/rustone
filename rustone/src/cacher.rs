@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     fs,
     io::Write,
     path::{Path, PathBuf},
@@ -215,4 +216,23 @@ pub fn upgrade_jar(version: MinecraftVersion) -> Result<()> {
         mcversion: version,
         patch: new_patch,
     })
+}
+
+pub fn purge_jar(version: MinecraftVersion) -> Result<()> {
+    if !is_cached_jar_available(version) {
+        Ok(())
+    } else {
+        let path = cached_jar_path(version);
+        fs::remove_file(&path)
+            .chain_err(|| format!("failed to delete {}", path.to_string_lossy()))?;
+        let mut meta = read_cache_meta()?;
+        meta.jars.remove(
+            meta.jars
+                .iter()
+                .position(|i| i.mcversion == version)
+                .unwrap(),
+        );
+        write_cache_meta(&meta)?;
+        Ok(())
+    }
 }
