@@ -11,7 +11,7 @@ use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 /// let ver = "1.12.2".parse::<MinecraftVersion>().unwrap();
 /// assert_eq!(ver, MinecraftVersion(1, 12, Some(2)))
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 pub struct MinecraftVersion(pub u32, pub u32, pub Option<u32>);
 
 impl<'a> MinecraftVersion {
@@ -19,18 +19,40 @@ impl<'a> MinecraftVersion {
     where
         I: Iterator<Item = &'a str>,
     {
-        let minecraft = (
+        Ok(Self(
             splitted.next().unwrap().parse()?,
             splitted.next().unwrap_or("").parse()?,
-        );
-        Ok(Self(
-            minecraft.0,
-            minecraft.1,
             match splitted.next() {
-                Some(s) => Some(s.parse()?),
+                Some(s) => {
+                    if let Some(s) = s.strip_prefix("pre") {
+                        s[3..].parse::<u32>()?;
+                        // Pre-release versions are treated like the minor release,
+                        // I didn't want to fiddle with handling them differently
+                        // (might change over time)
+                        // TODO ?
+                        None
+                    } else {
+                        Some(s.parse()?)
+                    }
+                }
                 None => None,
             },
         ))
+    }
+}
+
+impl Ord for MinecraftVersion {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0
+            .cmp(&other.0)
+            .then_with(|| self.1.cmp(&other.1))
+            .then_with(|| self.2.unwrap_or(0).cmp(&other.2.unwrap_or(0)))
+    }
+}
+
+impl PartialOrd for MinecraftVersion {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -186,7 +208,7 @@ impl<'de> Deserialize<'de> for ServerVersion {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct ServerConfig {
     pub version: ServerVersion,
     pub name: String,
@@ -194,6 +216,7 @@ pub struct ServerConfig {
     pub extra_java_args: Vec<String>,
     #[serde(default)]
     pub extra_server_args: Vec<String>,
+    pub kind: String,
 }
 
 impl ServerConfig {

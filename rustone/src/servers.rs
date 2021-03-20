@@ -1,3 +1,4 @@
+use crate::server_kinds::ServerKind;
 use fs::{read_dir, ReadDir};
 use lazy_static::lazy_static;
 
@@ -18,49 +19,14 @@ lazy_static! {
     pub static ref DATA_SERVER_DIR: PathBuf = project_dirs().unwrap().data_dir().into();
 }
 
-pub fn server_args(server: &Server) -> Result<Vec<String>> {
-    let config_path = server
-        .server_path()?
-        .join("configs")
-        .canonicalize()
-        .chain_err(|| "canonicalize failed")?;
-    let world_path = server
-        .server_path()?
-        .join("worlds")
-        .canonicalize()
-        .chain_err(|| "canonicalize failed")?;
-    let plugins_path = server
-        .server_path()?
-        .join("plugins")
-        .canonicalize()
-        .chain_err(|| "canonicalize failed")?;
+impl ServerConfig {
+    pub fn path(&self) -> PathBuf {
+        DATA_SERVER_DIR.join(&self.name)
+    }
 
-    Ok(vec![
-        // Don't open a GUI, that could interfere with us
-        "--nogui".to_string(),
-        // Config files
-        "--paper-settings".to_string(),
-        config_path.join("paper.yml").to_string_lossy().to_string(),
-        "--spigot-settings".to_string(),
-        config_path.join("spigot.yml").to_string_lossy().to_string(),
-        "--bukkit-settings".to_string(),
-        config_path.join("bukkit.yml").to_string_lossy().to_string(),
-        "--config".to_string(),
-        config_path
-            .join("server.properties")
-            .to_string_lossy()
-            .to_string(),
-        "--commands-settings".to_string(),
-        config_path
-            .join("commands.yml")
-            .to_string_lossy()
-            .to_string(),
-        // Data files
-        "--universe".to_string(),
-        world_path.to_string_lossy().to_string(),
-        "--plugins".to_string(),
-        plugins_path.to_string_lossy().to_string(),
-    ])
+    pub fn config_path(&self) -> PathBuf {
+        CONFIG_SERVER_DIR.join(format!("{}.toml", self.name))
+    }
 }
 
 impl Server {
@@ -80,21 +46,21 @@ impl Server {
         Ok(Self { config })
     }
 
-    pub fn create(name: &str, version: ServerVersion) -> Result<Self> {
+    pub fn create(name: &str, version: ServerVersion, kind: String) -> Result<Self> {
         let mut file = fs::File::create(CONFIG_SERVER_DIR.join(format!("{}.toml", name)))
             .chain_err(|| "could not create server config")?;
 
-        for dir in &["configs", "worlds", "plugins"] {
-            fs::create_dir_all(DATA_SERVER_DIR.join(name).join(dir))
-                .chain_err(|| format!("could not create directory {}", dir))?;
-        }
+        let server_kind = kind.parse::<ServerKind>()?;
 
         let config = ServerConfig {
             name: name.to_owned(),
             version,
             extra_java_args: vec![],
             extra_server_args: vec![],
+            kind,
         };
+
+        server_kind.initialize(&config)?;
 
         file.write_all(
             toml::to_string_pretty(&config)
@@ -118,7 +84,6 @@ impl Server {
         }
 
         let config = CONFIG_SERVER_DIR.join(format!("{}.toml", self.config.name,));
-
         Ok(config)
     }
 

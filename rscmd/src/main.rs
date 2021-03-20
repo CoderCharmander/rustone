@@ -4,6 +4,7 @@ use clap::{load_yaml, App};
 
 mod actions;
 mod cli;
+mod candy;
 
 fn enable_ansi() {
     #[cfg(windows)]

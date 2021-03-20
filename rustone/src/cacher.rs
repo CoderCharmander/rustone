@@ -1,128 +1,120 @@
-use std::{
-    fs,
-    io::Write,
-    path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
-};
-
-use fs::File;
-use lazy_static::lazy_static;
+use std::{collections::HashMap, fs, io::Write, path::PathBuf};
 
 use crate::config::MinecraftVersion;
-use crate::{
-    config::ServerVersion,
-    errors::*,
-    global::project_dirs,
-    paper_api,
-    servers::{server_args, Server},
-};
+use crate::{config::ServerVersion, errors::*, global::project_dirs};
+use fs::File;
+use lazy_static::lazy_static;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Structure representing a cached server jar file
 pub struct CachedJar {
     pub version: ServerVersion,
-    path: PathBuf,
 }
 
-impl CachedJar {
-    pub async fn get(version: ServerVersion) -> Result<Self> {
-        if is_cached_jar_latest(version.minecraft).await {
-            return Ok(Self {
-                path: cached_jar_path(version.minecraft),
-                version,
-            });
-        }
-        let out = Self::download(version).await?;
-        add_jar_to_cache_meta(CachedJarMeta {
-            mcversion: version.minecraft,
-            patch: out.version.patch.unwrap(),
-        })?;
-        Ok(out)
-    }
+#[derive(PartialEq, Hash, Eq, Clone)]
+pub struct CachedJarMetaKey {
+    pub version: MinecraftVersion,
+    pub kind: String,
+}
 
-    /// Download the jar file corresponding to `version` and create a `CachedJar`.
-    pub async fn download(mut version: ServerVersion) -> Result<Self> {
-        let path = project_dirs()?
-            .cache_dir()
-            .join(format!("paper-{}.jar", version));
-        fs::create_dir_all(project_dirs()?.cache_dir())
-            .chain_err(|| "could not create cache directory")?;
-        println!("Downloading server jar version {}", version);
-        let mut file =
-            fs::File::create(path).chain_err(|| "could not create jar file to download")?;
-        paper_api::ProjectVersionList::download(&mut version, &mut file).await
-            .chain_err(|| "could not download server jar")?;
-        Ok(Self {
-            path: project_dirs()?
-                .cache_dir()
-                .join(format!("paper-{}.jar", version.minecraft)),
-            version,
-        })
-    }
-
-    /// Start a server with the cached jar.
-    pub fn start_server(
-        &self,
-        server: Server,
-        stdout: Stdio,
-        stderr: Stdio,
-        stdin: Stdio,
-    ) -> Result<Child> {
-        if server.config.version != self.version {
-            return Err(Error::from("Server started with invalid version!"));
-        }
-
-        println!("Starting server {}", server.config.name);
-
-        let config_path = server
-            .server_path()?
-            .join("configs")
-            .canonicalize()
-            .chain_err(|| "canonicalize failed")?;
-
-        let cmd = Command::new("java")
-            // Append the extra Java arguments specified in config.
-            .args(&server.config.extra_java_args)
-            .args(&["-jar", &self.path.to_string_lossy()])
-            .args(server_args(&server)?)
-            // Append the extra Minecraft arguments.
-            .args(&server.config.extra_server_args)
-            // There might be other config files, caches etc. We don't want them
-            // to clutter the current directory, even less to be lost or overridden
-            // accidentally.
-            .current_dir(config_path)
-            .stdout(stdout)
-            .stderr(stderr)
-            .stdin(stdin)
-            .spawn()
-            .chain_err(|| "spawning the server process failed")?;
-        Ok(cmd)
-    }
-
-    fn get_cached_path(version: MinecraftVersion) -> PathBuf {
+impl CachedJarMetaKey {
+    pub fn path(&self) -> PathBuf {
         project_dirs()
             .unwrap()
             .cache_dir()
-            .join(format!("paper-{}.jar", version))
+            .join(format!("{}-{}.jar", self.kind, self.version))
+    }
+}
+
+impl Serialize for CachedJarMetaKey {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("{}@{}", self.kind, self.version))
+    }
+}
+
+impl<'de> Deserialize<'de> for CachedJarMetaKey {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::Error;
+        let str = <&str>::deserialize(deserializer)?;
+        let mut parts = str.splitn(2, '@');
+        Ok(Self {
+            kind: parts.next().unwrap().to_owned(),
+            version: parts
+                .next()
+                .ok_or_else(|| D::Error::custom("cache key must contain a '@'"))?
+                .parse()
+                .map_err(D::Error::custom)?,
+        })
     }
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
-pub struct CachedJarMeta {
-    pub mcversion: MinecraftVersion,
-    pub patch: u32,
-}
-#[derive(serde::Serialize, serde::Deserialize)]
 pub struct CacheMeta {
-    pub jars: Vec<CachedJarMeta>,
+    pub jars: HashMap<CachedJarMetaKey, u32>,
 }
 
 lazy_static! {
     static ref CACHE_META_PATH: PathBuf = project_dirs().unwrap().cache_dir().join("cache.toml");
 }
 
+pub fn get_cached(key: CachedJarMetaKey) -> Result<Option<CachedJar>> {
+    let meta = read_cache_meta()?.jars;
+    let patch = match meta.get(&key) {
+        Some(p) => *p,
+        None => return Ok(None),
+    };
+    let path = key.path();
+
+    if !(path.exists() && path.is_file()) {
+        return Ok(None);
+    }
+    Ok(Some(CachedJar {
+        version: ServerVersion {
+            minecraft: key.version,
+            patch: Some(patch),
+        },
+    }))
+}
+
+pub fn get_cached_patch(key: &CachedJarMetaKey) -> Result<Option<u32>> {
+    Ok(read_cache_meta()?.jars.get(&key).copied())
+}
+
+pub fn cache_jar(
+    version: MinecraftVersion,
+    patch: u32,
+    kind: String,
+) -> Result<(fs::File, CachedJar)> {
+    let mut meta = read_cache_meta()?.jars;
+    let key = CachedJarMetaKey { version, kind };
+    if let Some(meta) = meta.get_mut(&key) {
+        *meta = patch;
+    } else {
+        meta.insert(key.clone(), patch);
+    }
+    write_cache_meta(&CacheMeta { jars: meta })?;
+    Ok((
+        fs::File::create(key.path()).chain_err(|| "failed to cache file")?,
+        CachedJar {
+            version: ServerVersion {
+                minecraft: version,
+                patch: Some(patch),
+            },
+        },
+    ))
+}
+
 pub fn read_cache_meta() -> Result<CacheMeta> {
     if !CACHE_META_PATH.exists() {
-        return Ok(CacheMeta { jars: vec![] });
+        return Ok(CacheMeta {
+            jars: HashMap::new(),
+        });
     }
     let text = fs::read_to_string(CACHE_META_PATH.clone().into_os_string())
         .chain_err(|| "failed to read cache metadata")?;
@@ -138,100 +130,8 @@ fn write_cache_meta(meta: &CacheMeta) -> Result<()> {
     Ok(())
 }
 
-fn add_jar_to_cache_meta(meta: CachedJarMeta) -> Result<()> {
-    let mut cur_meta = read_cache_meta()?;
-    if let Some(cache_item_ref) = cur_meta
-        .jars
-        .iter_mut()
-        .find(|c| c.mcversion == meta.mcversion)
-    {
-        cache_item_ref.patch = meta.patch;
-    } else {
-        cur_meta.jars.push(meta);
-    }
-
-    write_cache_meta(&cur_meta)?;
-
-    Ok(())
-}
-
-fn cached_jar_path(version: MinecraftVersion) -> PathBuf {
-    project_dirs()
-        .unwrap()
-        .cache_dir()
-        .join(format!("paper-{}.jar", version))
-}
-
-pub fn is_cached_jar_available(version: MinecraftVersion) -> bool {
-    project_dirs().map_or(false, |p| {
-        Path::new(&p.cache_dir().join(format!("paper-{}.jar", version))).exists()
+pub fn erase_cache() -> Result<()> {
+    write_cache_meta(&CacheMeta {
+        jars: HashMap::new(),
     })
-}
-
-pub fn get_cached_jar_patch(version: MinecraftVersion) -> Option<u32> {
-    if !is_cached_jar_available(version) {
-        return None;
-    }
-    let meta = read_cache_meta();
-    let meta = match meta {
-        Ok(meta) => meta,
-        Err(_) => return None,
-    };
-    // Is there any cache entry matching the version?
-    meta.jars
-        .iter()
-        .find(|c| c.mcversion == version)
-        .map(|c| c.patch)
-}
-
-pub async fn is_cached_jar_latest(version: MinecraftVersion) -> bool {
-    let patch = get_cached_jar_patch(version);
-    if patch.is_none() {
-        return false;
-    }
-    let patch = patch.unwrap();
-    // If we can't fetch the patches, we likely can't upgrade either
-    match paper_api::ProjectVersionList::fetch_patches(version, "paper").await {
-        Ok(list) => patch >= list.latest,
-        Err(_) => false,
-    }
-}
-
-pub async fn upgrade_jar(version: MinecraftVersion) -> Result<()> {
-    if is_cached_jar_latest(version).await {
-        return Ok(());
-    }
-    let new_patch = paper_api::ProjectVersionList::fetch_patches(version, "paper").await?.latest;
-    let mut out_file = File::create(CachedJar::get_cached_path(version))
-        .chain_err(|| "failed to create upgraded jar file")?;
-    paper_api::ProjectVersionList::download(
-        &mut ServerVersion {
-            minecraft: version,
-            patch: Some(new_patch),
-        },
-        &mut out_file,
-    ).await?;
-    add_jar_to_cache_meta(CachedJarMeta {
-        mcversion: version,
-        patch: new_patch,
-    })
-}
-
-pub fn purge_jar(version: MinecraftVersion) -> Result<()> {
-    if !is_cached_jar_available(version) {
-        Ok(())
-    } else {
-        let path = cached_jar_path(version);
-        fs::remove_file(&path)
-            .chain_err(|| format!("failed to delete {}", path.to_string_lossy()))?;
-        let mut meta = read_cache_meta()?;
-        meta.jars.remove(
-            meta.jars
-                .iter()
-                .position(|i| i.mcversion == version)
-                .unwrap(),
-        );
-        write_cache_meta(&meta)?;
-        Ok(())
-    }
 }

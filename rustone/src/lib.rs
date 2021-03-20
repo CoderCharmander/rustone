@@ -2,13 +2,12 @@ extern crate error_chain;
 pub mod cacher;
 pub mod config;
 pub mod errors;
-pub mod paper_api;
+pub mod server_kinds;
 pub mod servers;
 
 pub mod global {
-    use directories::ProjectDirs;
-
     use crate::errors;
+    use directories::ProjectDirs;
 
     pub fn project_dirs() -> errors::Result<ProjectDirs> {
         directories::ProjectDirs::from("org", "CoderCharmander", "Rustone")
