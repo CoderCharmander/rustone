@@ -27,38 +27,50 @@ struct PatchListResponse {
 impl ProjectVersionList {
     pub async fn fetch(project: &str) -> Result<ProjectVersionList> {
         let url = "https://papermc.io/api/v1/".to_owned() + project;
-        let resp = ureq::get(&url)
-            .call()
-            .into_json_deserialize::<ProjectVersionList>()
+        let resp = reqwest::get(&url)
+            .await
+            .chain_err(|| "failed to fetch versions")?
+            .json()
+            .await
             .chain_err(|| format!("failed to fetch versions for {}", project))?;
         Ok(resp)
     }
 
-    pub fn fetch_patches(version: MinecraftVersion, project: &str) -> Result<PatchList> {
+    pub async fn fetch_patches(version: MinecraftVersion, project: &str) -> Result<PatchList> {
         let url = format!("https://papermc.io/api/v1/{}/{}", project, version);
-        let resp = ureq::get(&url)
-            .call()
-            .into_json_deserialize::<PatchListResponse>()
-            .chain_err(|| format!("failed to request build list for version {:?}", version))?;
+        let resp: PatchListResponse = reqwest::get(&url)
+            .await
+            .chain_err(|| "failed to connect to server")?
+            .json()
+            .await
+            .chain_err(|| format!("failed to deserialize build list for version (this is likely a server-side problem) {:?}", version))?;
         Ok(resp.builds)
     }
 
     /// Download a server jar with the specified version into `stream`.
-    pub fn download<T: io::Write>(version: &mut ServerVersion, stream: &mut T) -> Result<()> {
-        let (url, patch) = get_download_url(version)?;
+    pub async fn download<T: io::Write>(version: &mut ServerVersion, stream: &mut T) -> Result<()> {
+        let (url, patch) = get_download_url(version).await?;
         info!("Downloading {}", url);
         version.patch = Some(patch);
-        let mut resp = ureq::get(&url).call().into_reader();
-        io::copy(&mut resp, stream).chain_err(|| "could not download jar")?;
+        let resp = reqwest::get(&url)
+            .await
+            .chain_err(|| "failed to request jar from server")?
+            .bytes()
+            .await
+            .chain_err(|| "failed to get raw binary jar")?;
+        let mut cursor = io::Cursor::new(resp);
+        io::copy(&mut cursor, stream).chain_err(|| "could not download jar")?;
         Ok(())
     }
 }
 
-fn get_download_url(version: &ServerVersion) -> Result<(String, u32)> {
-    let patch = version.patch.map_or_else(
-        || ProjectVersionList::fetch_patches(version.minecraft, "paper").map(|pl| pl.latest),
-        Ok,
-    )?;
+async fn get_download_url(version: &ServerVersion) -> Result<(String, u32)> {
+    let patch = match version.patch {
+        Some(p) => Ok(p),
+        None => ProjectVersionList::fetch_patches(version.minecraft, "paper")
+            .await
+            .map(|pl| pl.latest),
+    }?;
     Ok((
         format!(
             "https://papermc.io/api/v1/paper/{}/{}/download",

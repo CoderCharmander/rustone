@@ -10,7 +10,7 @@ license = "MIT"
 [dependencies]
 http = "0.2"
 webpki-roots = "0.21.0"
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "1.4.0", features = ["full"] }
 warp = "0.2"
 rustone = { path = "../rustone" }
 json = "0.12"

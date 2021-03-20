@@ -10,17 +10,18 @@ fn enable_ansi() {
     ansi_term::enable_ansi_support();
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let yaml = load_yaml!("cli.yaml");
     let matches = App::from_yaml(yaml).get_matches();
 
     let out = match matches.subcommand() {
-        ("download", matches) => actions::download(matches.unwrap()),
+        ("download", matches) => actions::download(matches.unwrap()).await,
         ("list", _) => actions::list(),
         ("create", matches) => actions::create(matches.unwrap()),
-        ("start", matches) => actions::start(matches.unwrap()),
+        ("start", matches) => actions::start(matches.unwrap()).await,
         ("remove", matches) => actions::remove(matches.unwrap()),
-        ("cache", matches) => actions::cache(matches.unwrap()),
+        ("cache", matches) => actions::cache(matches.unwrap()).await,
         _ => unreachable!(),
     };
 

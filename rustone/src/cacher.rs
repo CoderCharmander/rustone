@@ -1,5 +1,4 @@
 use std::{
-    borrow::Borrow,
     fs,
     io::Write,
     path::{Path, PathBuf},
@@ -25,14 +24,14 @@ pub struct CachedJar {
 }
 
 impl CachedJar {
-    pub fn get(version: ServerVersion) -> Result<Self> {
-        if is_cached_jar_latest(version.minecraft) {
+    pub async fn get(version: ServerVersion) -> Result<Self> {
+        if is_cached_jar_latest(version.minecraft).await {
             return Ok(Self {
                 path: cached_jar_path(version.minecraft),
                 version,
             });
         }
-        let out = Self::download(version)?;
+        let out = Self::download(version).await?;
         add_jar_to_cache_meta(CachedJarMeta {
             mcversion: version.minecraft,
             patch: out.version.patch.unwrap(),
@@ -41,7 +40,7 @@ impl CachedJar {
     }
 
     /// Download the jar file corresponding to `version` and create a `CachedJar`.
-    pub fn download(mut version: ServerVersion) -> Result<Self> {
+    pub async fn download(mut version: ServerVersion) -> Result<Self> {
         let path = project_dirs()?
             .cache_dir()
             .join(format!("paper-{}.jar", version));
@@ -50,7 +49,7 @@ impl CachedJar {
         println!("Downloading server jar version {}", version);
         let mut file =
             fs::File::create(path).chain_err(|| "could not create jar file to download")?;
-        paper_api::ProjectVersionList::download(&mut version, &mut file)
+        paper_api::ProjectVersionList::download(&mut version, &mut file).await
             .chain_err(|| "could not download server jar")?;
         Ok(Self {
             path: project_dirs()?
@@ -185,24 +184,24 @@ pub fn get_cached_jar_patch(version: MinecraftVersion) -> Option<u32> {
         .map(|c| c.patch)
 }
 
-pub fn is_cached_jar_latest(version: MinecraftVersion) -> bool {
+pub async fn is_cached_jar_latest(version: MinecraftVersion) -> bool {
     let patch = get_cached_jar_patch(version);
     if patch.is_none() {
         return false;
     }
     let patch = patch.unwrap();
     // If we can't fetch the patches, we likely can't upgrade either
-    match paper_api::ProjectVersionList::fetch_patches(version, "paper") {
+    match paper_api::ProjectVersionList::fetch_patches(version, "paper").await {
         Ok(list) => patch >= list.latest,
         Err(_) => false,
     }
 }
 
-pub fn upgrade_jar(version: MinecraftVersion) -> Result<()> {
-    if is_cached_jar_latest(version) {
+pub async fn upgrade_jar(version: MinecraftVersion) -> Result<()> {
+    if is_cached_jar_latest(version).await {
         return Ok(());
     }
-    let new_patch = paper_api::ProjectVersionList::fetch_patches(version, "paper")?.latest;
+    let new_patch = paper_api::ProjectVersionList::fetch_patches(version, "paper").await?.latest;
     let mut out_file = File::create(CachedJar::get_cached_path(version))
         .chain_err(|| "failed to create upgraded jar file")?;
     paper_api::ProjectVersionList::download(
@@ -211,7 +210,7 @@ pub fn upgrade_jar(version: MinecraftVersion) -> Result<()> {
             patch: Some(new_patch),
         },
         &mut out_file,
-    )?;
+    ).await?;
     add_jar_to_cache_meta(CachedJarMeta {
         mcversion: version,
         patch: new_patch,

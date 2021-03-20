@@ -12,7 +12,7 @@ use std::{fs, io::BufRead, process::Stdio};
 
 mod cache;
 
-pub fn download(args: &ArgMatches) -> Result<()> {
+pub async fn download(args: &ArgMatches<'_>) -> Result<()> {
     let mut version = ServerVersion::new(args.value_of("VERSION").unwrap())?;
 
     let output = format!("paper-{}.jar", version.minecraft);
@@ -21,7 +21,7 @@ pub fn download(args: &ArgMatches) -> Result<()> {
     println!("Downloading version {} into {}", version, output);
 
     let mut file = fs::File::create(output).chain_err(|| "could not create jar file")?;
-    paper_api::ProjectVersionList::download(&mut version, &mut file)?;
+    paper_api::ProjectVersionList::download(&mut version, &mut file).await?;
 
     Ok(())
 }
@@ -33,10 +33,10 @@ pub fn create(args: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-pub fn start(args: &ArgMatches) -> Result<()> {
+pub async fn start(args: &ArgMatches<'_>) -> Result<()> {
     let name = args.value_of("NAME").unwrap();
     let server = Server::get(&name)?;
-    let jar = CachedJar::get(server.config.version)?;
+    let jar = CachedJar::get(server.config.version).await?;
     let mut child =
         jar.start_server(server, Stdio::inherit(), Stdio::inherit(), Stdio::inherit())?;
     child.wait().chain_err(|| "wait failed")?;
@@ -78,9 +78,9 @@ pub fn remove(args: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-pub fn cache(args: &ArgMatches) -> Result<()> {
+pub async fn cache(args: &ArgMatches<'_>) -> Result<()> {
     match args.subcommand() {
-        ("upgrade", _) => cache::upgrade(),
+        ("upgrade", _) => cache::upgrade().await,
         ("purge", _) => cache::purge(),
         _ => unreachable!(),
     }
