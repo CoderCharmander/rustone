@@ -34,7 +34,7 @@ mod tests {
 
     #[test]
     fn config_parse() {
-        let config = config::ServerConfig::new("name = 'something'\nversion = '1.12.2-4'").unwrap();
+        let config = config::ServerConfig::new("name = 'something'\nversion = '1.12.2-4'\nkind='paper'").unwrap();
         assert_eq!(config.name, "something");
         assert_eq!(
             config.version,
